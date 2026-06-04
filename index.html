@@ -3,6 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <!-- PWA iOS & Android Meta Tags -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Horizon XII">
+<meta name="theme-color" content="#f8fafc">
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2220%22 fill=%22%231e293b%22/><text y=%2260%22 x=%2250%22 font-size=%2240%22 font-family=%22sans-serif%22 font-weight=%22bold%22 fill=%22%23ffffff%22 text-anchor=%22middle%22>XII</text></svg>">
+
+<!-- Web App Manifest Inlined as Data URI -->
+<link rel="manifest" href="data:application/json,HexText,%7B%22name%22%3A%22The%20Horizon%20Arc%22%2C%22short_name%22%3A%22Horizon%20XII%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23f8fafc%22%2C%22theme_color%22%3A%22%231e293b%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22data%3Aimage%2Fsvg%2Bxml%2C%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20512%20512%27%3E%3Crect%20width%3D%27512%27%20height%3D%27512%27%20rx%3D%27100%27%20fill%3D%27%231e293b%27%2F%3E%3Ctext%20y%3D%27300%27%20x%3D%27256%27%20font-size%3D%27180%27%20font-family%3D%27sans-serif%27%20font-weight%3D%27bold%27%20fill%3D%27%23ffffff%27%20text-anchor%3D%27middle%27%3EXII%3C%2Ftext%3E%3C%2Fsvg%3E%22%2C%22sizes%22%3A%22512x512%22%2C%22type%22%3A%22image%2Fsvg%2Bxml%22%2D%22purpose%22%3A%22any%20maskable%22%7D%5D%7D">
     <title>12-Week Year Mobile Hub</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
@@ -33,6 +42,17 @@
             margin: 0;
             padding: 1rem 1rem 5rem 1rem; /* Extra bottom padding for the fixed mobile dock */
         }
+
+        .install-banner {
+    display: none; /* Hidden by default, shown via JS */
+    background: #1e293b; color: white; padding: 0.85rem 1.25rem; border-radius: 12px;
+    margin-bottom: 1rem; align-items: center; justify-content: space-between;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1); font-size: 0.85rem;
+}
+.btn-install {
+    background: white; color: #1e293b; padding: 0.4rem 0.8rem;
+    border-radius: 8px; font-size: 0.8rem; font-weight: 700; width: auto; border: none;
+}
 
         .container {
             max-width: 500px; /* Perfectly bounds the layout to mobile form factors */
@@ -357,6 +377,10 @@
         <input type="date" id="startDateInput" onchange="updateStartDate()">
     </div>
 </div>
+<div class="install-banner" id="installBanner">
+    <span class="install-text">✦ Add **Horizon XII** to your home screen</span>
+    <button class="btn-install" id="installBtn">Install</button>
+</div>
 
 <div class="mobile-dock">
     <div class="dock-item">
@@ -593,6 +617,51 @@
     initChart();
     updateDashboardMetrics();
     scrollToActiveWeek();
+
+
+    // --- Progressive Web App Installation Handling ---
+let deferredPrompt;
+const installBanner = document.getElementById('installBanner');
+const installBtn = document.getElementById('installBtn');
+
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    installBanner.style.display = 'flex'; // Show custom banner on Android/Chrome
+});
+
+installBtn.addEventListener('click', async () => {
+    if (!deferredPrompt) return;
+    installBanner.style.display = 'none';
+    deferredPrompt.prompt();
+    await deferredPrompt.userChoice;
+    deferredPrompt = null;
+});
+
+window.addEventListener('appinstalled', () => {
+    installBanner.style.display = 'none';
+    deferredPrompt = null;
+});
+
+// Safari iOS fallback instructions
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+const isInStandaloneMode = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
+
+if (isIOS && !isInStandaloneMode) {
+    installBanner.style.display = 'flex';
+    document.querySelector('.install-text').innerHTML = '✦ Tap <span style="font-weight:bold;">Share</span> then <span style="font-weight:bold;">Add to Home Screen</span>';
+    installBtn.style.display = 'none';
+}
+
+// Automatic inline Service Worker registration
+if ('serviceWorker' in navigator) {
+    const swContent = `
+        self.addEventListener('install', (e) => self.skipWaiting());
+        self.addEventListener('fetch', (e) => e.respondWith(fetch(e.request).catch(() => new Response("Offline Mode"))));
+    `;
+    const blob = new Blob([swContent], { type: 'application/javascript' });
+    navigator.serviceWorker.register(URL.createObjectURL(blob)).catch(() => {});
+}
 </script>
 
 </body>
